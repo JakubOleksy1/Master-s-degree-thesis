@@ -15,9 +15,9 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 from sklearn.impute import SimpleImputer
 
 import tensorflow as tf
-#from tensorflow.keras.layers import Dense
-#from tensorflow.keras.models import Sequential
-#from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.utils import to_categorical
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'                # Suppress TensorFlow logging
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'               # Turn off oneDNN custom operations
@@ -65,13 +65,13 @@ def train_model(X_train, y_train, classifier_choice):
     elif classifier_choice == 5:
         input_dim = X_train.shape[1]
         output_dim = len(np.unique(y_train))
-        model = tf.keras.models.Sequential()
-        model.add(tf.keras.layers.Dense(64, input_dim=input_dim, activation='relu'))
-        model.add(tf.keras.layers.Dense(32, activation='relu'))
-        model.add(tf.keras.layers.Dense(output_dim, activation='softmax' if output_dim > 1 else 'sigmoid'))
+        model = Sequential()
+        model.add(Dense(64, input_dim=input_dim, activation='relu'))
+        model.add(Dense(32, activation='relu'))
+        model.add(Dense(output_dim, activation='softmax' if output_dim > 1 else 'sigmoid'))
         model.compile(loss='categorical_crossentropy' if output_dim > 1 else 'binary_crossentropy',
                     optimizer='adam', metrics=['accuracy'])
-        y_train = tf.keras.utils.to_categorical(y_train) if output_dim > 1 else y_train
+        y_train = to_categorical(y_train) if output_dim > 1 else y_train
         model.fit(X_train, y_train, epochs=50, batch_size=32, validation_split=0.2, verbose=1)
         return model
     else:
@@ -149,14 +149,18 @@ if __name__ == "__main__":
     # Make predictions
     if classifier_choice == 5:
         y_pred_prob = model.predict(X_test)
-        y_pred = np.argmax(y_pred_prob, axis=1) if len(np.unique(y_test)) > 1 else (y_pred_prob > 0.5).astype(int)
+        if len(np.unique(y_test)) > 1:
+            y_pred = np.argmax(y_pred_prob, axis=1)
+            y_pred_prob = y_pred_prob[:, 1]  # Extract probabilities for the positive class
+        else:
+            y_pred = (y_pred_prob > 0.5).astype(int)
     else:
         y_pred_prob = model.predict_proba(X_test)[:, 1]
         y_pred = model.predict(X_test)
 
     # Ensure y_test is not one-hot encoded
     if classifier_choice == 5 and len(np.unique(y_test)) > 1:
-        y_test = np.argmax(y_test, axis=1)
+        y_test = np.argmax(y_test, axis=1) if y_test.ndim > 1 else y_test
 
     # Evaluate the model
     accuracy = accuracy_score(y_test, y_pred)
